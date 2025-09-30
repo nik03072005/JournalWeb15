@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>New Item Added - Digital Library</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 30px; max-width: 600px; margin: auto; color: #333;">
+  <div style="background-color: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+    <h1 style="color: #003366; margin-bottom: 20px;">New {{itemType}} Added to Digital Library</h1>
+
+    <p style="font-size: 16px;">Hi <strong>{{firstName}}</strong>,</p>
+
+    <p style="font-size: 16px; margin-top: 10px;">
+      We're excited to inform you that a new {{itemType}} has been added to the Digital Library -  Vidya Bharati International School.
+    </p>
+
+    <div style="background-color: #f8f9fa; border-left: 4px solid #003366; border-radius: 8px; padding: 20px; margin: 25px 0;">
+      <h2 style="color: #003366; margin: 0 0 15px 0; font-size: 20px;">{{itemTitle}}</h2>
+      
+      <p style="margin: 8px 0; font-size: 14px; color: #666;">
+        <strong>Type:</strong> {{itemType}}
+      </p>
+      
+      <p style="margin: 8px 0; font-size: 14px; color: #666;">
+        <strong>Author(s):</strong> {{creators}}
+      </p>
+      
+      <p style="margin: 8px 0; font-size: 14px; color: #666;">
+        <strong>Date Added:</strong> {{date}}
+      </p>
+      
+      <div style="margin-top: 15px;">
+        <p style="margin: 0 0 10px 0; font-size: 14px; color: #333;"><strong>Abstract:</strong></p>
+        <p style="margin: 0; font-size: 14px; color: #555; line-height: 1.4; max-height: 100px; overflow: hidden;">
+          {{itemAbstract}}
+        </p>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://journal-web-kappa.vercel.app/paper/{{_id}}" 
+         style="background-color: #003366; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+        Visit Digital Library
+      </a>
+    </div>
+
+    <p style="font-size: 14px; color: #856404; background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+      📚 Stay updated with the latest additions to our digital collection!
+    </p>
+
+    <p style="font-size: 14px; color: #666;">
+      Thank you for being a part of our digital library community.
+    </p>
+
+    <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;"/>
+
+    <div style="font-size: 12px; color: #777; text-align: center;">
+      <p>This is an automated notification from Digital Library -  Vidya Bharati International School</p>
+      <p>© 2025 Digital Library. All rights reserved.</p>
+      <p style="margin-top: 10px;">
+        If you no longer wish to receive these notifications, please contact the library administrator.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
