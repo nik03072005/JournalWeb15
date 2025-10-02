@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Menu, X, ChevronDown, ArrowRight, User } from 'lucide-react';
 import Link from 'next/link';
 import ProfileDropdown from './ProfileDropdown';
@@ -7,20 +7,37 @@ import useAuthStore from '@/utility/justAuth';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [subjectsOpen, setSubjectsOpen] = useState(false);
+  const [subjectsOpen, setSubjectsOpen] = useState(false); // Kept for consistency
   const [browseOpen, setBrowseOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const { isLoggedIn, logout } = useAuthStore();
 
-  const handleLogout = async () => {
-    logout();
-    localStorage.clear();
-    await fetch('/api/logout');
-    window.location.href = '/auth';
-  };
+  // Memoized logout handler
+  const handleLogout = useCallback(async () => {
+    setIsLoggingOut(true);
+    try {
+      logout();
+      localStorage.clear();
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/auth';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      alert('Failed to logout. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }, [logout]);
+
+  // Memoized mobile menu toggle
+  const toggleMobileMenu = useCallback(() => {
+    setOpen((prev) => !prev);
+    if (browseOpen) setBrowseOpen(false);
+  }, [browseOpen]);
 
   const browseOptions = [
     'Book', 'Book Chapters', 'Conference Proceeding', 'Dissertation',
-    'Question Papers', 'Research Papers', 'Thesis'
+    'Magazine', 'Manuscript', 'Newspaper', 'Question Papers', 'Research Papers', 'Thesis'
   ];
 
   return (
@@ -39,6 +56,7 @@ export default function Navbar() {
                     src="/logo.png" 
                     alt="College Logo" 
                     className="h-5 xs:h-6 sm:h-7 md:h-8 lg:h-9 w-auto drop-shadow-sm transition-all duration-300" 
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -58,23 +76,21 @@ export default function Navbar() {
                 onMouseLeave={() => setBrowseOpen(false)}
               >
                 <button
-                  onClick={() => {
-                    setBrowseOpen(!browseOpen);
-                    // Hide search bar when dropdown is open
-                    const searchBar = document.querySelector('.search-bar');
-                    if (searchBar) searchBar.style.display = browseOpen ? 'none' : 'block';
-                  }}
+                  onClick={() => setBrowseOpen(!browseOpen)}
                   className="relative px-4 py-2 rounded-lg hover:text-white transition-all duration-300 flex items-center gap-2 group"
+                  aria-expanded={browseOpen}
+                  aria-controls="browse-dropdown"
+                  aria-label="Browse content types"
                 >
                   <span className="relative z-10 tracking-wide font-semibold">BROWSE</span>
                   <ChevronDown size={14} className={`transition-all duration-300 ${browseOpen ? 'rotate-180 text-white' : ''}`} />
                   <div className="absolute inset-0 bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </button>
                 {browseOpen && (
-                  <div className="absolute top-full left-0 pt-2 w-64 z-[70]">
+                  <div className="absolute top-full left-0 pt-2 w-64 z-[70]" id="browse-dropdown">
                     <div className="bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                      <div className="py-3">
-                        {browseOptions.map((option, index) => (
+                      <div className="py-3 max-h-96 overflow-y-auto">
+                        {browseOptions.map((option) => (
                           <Link
                             key={option}
                             href={`/type/${encodeURIComponent(option.toLowerCase().replace(/\s+/g, '-'))}`}
@@ -99,15 +115,17 @@ export default function Navbar() {
               </Link>
             </nav>
           </div>
+
           {/* Right Side - Auth/Profile (Tablet & Desktop) */}
           <div className="flex-1 flex justify-end">
             <div className="hidden md:block">
               {isLoggedIn ? (
-                <ProfileDropdown onLogout={handleLogout} />
+                <ProfileDropdown onLogout={handleLogout} isLoggingOut={isLoggingOut} />
               ) : (
                 <Link
                   href="/auth"
                   className="group relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 shadow-md hover:shadow-lg border border-white/30 hover:border-white/50"
+                  aria-label="Login"
                 >
                   <User size={14} className="sm:w-4 sm:h-4 text-white/90 group-hover:text-white transition-colors duration-300" />
                   <span className="font-semibold tracking-wide hidden sm:inline">Login</span>
@@ -120,8 +138,9 @@ export default function Navbar() {
             <div className="md:hidden flex justify-end">
               <button 
                 className="p-2 sm:p-2.5 text-white hover:bg-white/20 rounded-lg sm:rounded-xl transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-white/50" 
-                onClick={() => setOpen(!open)}
-                aria-label="Toggle navigation menu"
+                onClick={toggleMobileMenu}
+                aria-label={open ? 'Close menu' : 'Open menu'}
+                aria-expanded={open}
               >
                 <div className="relative">
                   {open ? (
@@ -136,13 +155,14 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
       {/* Mobile/Tablet Menu - Fully Responsive */}
       {open && (
         <div className="md:hidden relative z-[999]">
           {/* Backdrop Overlay */}
           <div 
             className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" 
-            onClick={() => setOpen(false)}
+            onClick={toggleMobileMenu}
             aria-hidden="true"
           ></div>
           
@@ -154,7 +174,8 @@ export default function Navbar() {
               <Link 
                 href="/" 
                 className="flex items-center text-sm sm:text-base text-gray-700 hover:text-blue-600 transition-all duration-300 group hover:translate-x-1 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl hover:bg-blue-50 font-medium"
-                onClick={() => setOpen(false)}
+                onClick={toggleMobileMenu}
+                aria-label="Home"
               >
                 <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full mr-3 sm:mr-4 transition-colors duration-300"></div>
                 <span>HOME</span>
@@ -166,6 +187,8 @@ export default function Navbar() {
                   onClick={() => setBrowseOpen(!browseOpen)}
                   className="w-full flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-700 hover:text-blue-600 transition-all duration-300 rounded-lg sm:rounded-xl hover:bg-blue-50 font-medium"
                   aria-expanded={browseOpen}
+                  aria-controls="mobile-browse-dropdown"
+                  aria-label="Browse content types"
                 >
                   <div className="flex items-center">
                     <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full mr-3 sm:mr-4"></div>
@@ -176,14 +199,14 @@ export default function Navbar() {
                 
                 {/* Browse Options */}
                 {browseOpen && (
-                  <div className="mt-1 sm:mt-2 ml-4 sm:ml-6 space-y-0.5 sm:space-y-1 max-h-48 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                  <div className="mt-1 sm:mt-2 ml-4 sm:ml-6 space-y-0.5 sm:space-y-1 max-h-48 overflow-y-auto" id="mobile-browse-dropdown" onClick={(e) => e.stopPropagation()}>
                     {browseOptions.map((option) => (
                       <Link
                         key={option}
                         href={`/type/${encodeURIComponent(option.toLowerCase().replace(/\s+/g, '-'))}`}
                         className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-blue-600 transition-all duration-200 group hover:translate-x-1 font-medium rounded-md"
                         onClick={() => {
-                          setOpen(false);
+                          toggleMobileMenu();
                           setBrowseOpen(false);
                         }}
                       >
@@ -199,7 +222,8 @@ export default function Navbar() {
               <Link 
                 href="/subjects" 
                 className="flex items-center text-sm sm:text-base text-gray-700 hover:text-blue-600 transition-all duration-300 group hover:translate-x-1 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl hover:bg-blue-50 font-medium"
-                onClick={() => setOpen(false)}
+                onClick={toggleMobileMenu}
+                aria-label="Subjects"
               >
                 <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full mr-3 sm:mr-4 transition-colors duration-300"></div>
                 <span>SUBJECTS</span>
@@ -212,7 +236,8 @@ export default function Navbar() {
                     <Link
                       href="/dashboard"
                       className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-blue-600 hover:text-blue-700 transition-all duration-300 mb-1 sm:mb-2 rounded-lg sm:rounded-xl hover:bg-blue-50 font-medium"
-                      onClick={() => setOpen(false)}
+                      onClick={toggleMobileMenu}
+                      aria-label="Dashboard"
                     >
                       <div className="flex items-center">
                         <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full mr-3 sm:mr-4"></div>
@@ -222,14 +247,16 @@ export default function Navbar() {
                     </Link>
                     <button
                       onClick={() => {
-                        setOpen(false);
+                        toggleMobileMenu();
                         handleLogout();
                       }}
                       className="w-full flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg sm:rounded-xl transition-all duration-300 font-medium"
+                      disabled={isLoggingOut}
+                      aria-label="Logout"
                     >
                       <div className="flex items-center">
                         <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full mr-3 sm:mr-4"></div>
-                        <span>LOGOUT</span>
+                        <span>{isLoggingOut ? 'LOGGING OUT...' : 'LOGOUT'}</span>
                       </div>
                       <ArrowRight size={16} className="sm:w-5 sm:h-5" />
                     </button>
@@ -238,7 +265,8 @@ export default function Navbar() {
                   <Link
                     href="/auth"
                     className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-blue-600 hover:text-blue-700 transition-all duration-300 rounded-lg sm:rounded-xl hover:bg-blue-50 font-medium"
-                    onClick={() => setOpen(false)}
+                    onClick={toggleMobileMenu}
+                    aria-label="Login"
                   >
                     <div className="flex items-center">
                       <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full mr-3 sm:mr-4"></div>
