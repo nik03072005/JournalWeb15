@@ -105,14 +105,16 @@ export default function Home() {
 
   return (
     <>
+      {/* Navbar - Outside hero section */}
+      <Navbar />
+      
       {/* Hero Section with Background */}
       <div
-        className="h-[60vh] xs:h-[65vh] sm:h-[70vh] md:h-[75vh] lg:h-[80vh] xl:h-[85vh] bg-[#003366] relative overflow-hidden"
+        className="min-h-screen sm:min-h-[90vh] md:min-h-[95vh] lg:min-h-screen xl:min-h-screen bg-[#003366] relative overflow-hidden"
         style={{
           backgroundImage: "url('/library.jpg')",
           backgroundSize: "cover",
-          backgroundPosition: "center center",
-          minHeight: "500px"
+          backgroundPosition: "center center"
         }}
       >
         {/* Background Overlays */}
@@ -121,15 +123,10 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/5 to-indigo-900/15 z-10"></div>
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 via-black/30 to-transparent z-15"></div>
 
-        {/* Navbar */}
-        <div className="absolute top-0 left-0 right-0 z-[100]">
-          <Navbar />
-        </div>
-
         {/* Hero Content - Text at Top */}
-        <div className="relative z-20 flex flex-col items-center justify-center pt-16 xs:pt-18 sm:pt-20 md:pt-24 lg:pt-28 xl:pt-32 pb-8 xs:pb-10 sm:pb-12 md:pb-14 lg:pb-16 h-full max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8">
+        <div className="relative z-20 flex flex-col items-center justify-center pt-12 sm:pt-16 md:pt-20 lg:pt-24 xl:pt-28 pb-12 sm:pb-16 md:pb-20 lg:pb-24 xl:pb-28 min-h-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           {/* Hero Text */}
-          <div className="text-center w-full max-w-xs xs:max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto mb-6 xs:mb-7 sm:mb-8 md:mb-10 lg:mb-12">
+          <div className="text-center w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto mb-8 sm:mb-10 md:mb-12 lg:mb-14 xl:mb-16">
             <h1 className="font-bold text-white leading-tight mb-2 xs:mb-3 sm:mb-4 md:mb-5">
               <span 
                 className="block text-lg xs:text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold"
@@ -171,8 +168,8 @@ export default function Home() {
           </div>
 
           {/* Search Section */}
-          <div className="w-full px-3 xs:px-4 sm:px-6 lg:px-8 mb-4 xs:mb-5 sm:mb-6">
-            <div className="max-w-xs xs:max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-3xl mx-auto">
+          <div className="w-full mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+            <div className="max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto px-4 sm:px-0">
               <div className="bg-white/95 backdrop-blur-lg shadow-2xl rounded-lg xs:rounded-xl lg:rounded-2xl border border-white/60 overflow-hidden ring-1 ring-gray-200/20">
                 <div className="p-1 xs:p-1.5 sm:p-2 lg:p-2.5">
                   <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
@@ -229,7 +226,7 @@ export default function Home() {
           </div>
 
           {/* Call to Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center max-w-sm sm:max-w-none mx-auto">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-6 justify-center max-w-sm sm:max-w-md md:max-w-lg mx-auto px-4 sm:px-0">
             <Link
               href="/advanceSearch"
               className="bg-white text-blue-600 hover:bg-blue-50 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 text-center text-sm"
@@ -247,25 +244,25 @@ export default function Home() {
       </div>
 
       {/* Stats Section */}
-      <div className="relative z-10 bg-gradient-to-r from-cyan-50 to-cyan-100 py-6 xs:py-8 sm:py-10 md:py-12 lg:py-14">
-        <div className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 bg-gradient-to-r from-cyan-50 to-cyan-100 py-8 sm:py-12 md:py-16 lg:py-20 xl:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           {/* Mobile Layout - Single Column */}
-          <div className="block sm:hidden space-y-3 xs:space-y-4 max-w-xs xs:max-w-sm mx-auto">
+          <div className="block sm:hidden space-y-4 max-w-sm mx-auto">
             {[
               { icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", count: stats.loading ? formatNumber(animatedNumbers.articles) : "115L+", label: "Articles Available", gradient: "from-blue-500 to-blue-600", ring: "ring-blue-200/50" },
               { icon: "M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z", count: stats.loading ? formatNumber(animatedNumbers.journals) : "21K+", label: "Journals Available", gradient: "from-indigo-500 to-indigo-600", ring: "ring-indigo-200/50" },
               { icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", count: stats.loading ? formatNumber(animatedNumbers.books) : "0+", label: "Books Available", gradient: "from-emerald-500 to-emerald-600", ring: "ring-emerald-200/50" },
               { icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", count: "24/7", label: "Always Available", gradient: "from-purple-500 to-purple-600", ring: "ring-purple-200/50" }
             ].map((stat, index) => (
-              <div key={index} className="bg-white/90 backdrop-blur-md rounded-xl xs:rounded-2xl p-3 xs:p-4 shadow-xl border border-white/60 flex items-center gap-3 xs:gap-4 hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]">
-                <div className={`bg-gradient-to-br ${stat.gradient} w-12 h-12 xs:w-14 xs:h-14 rounded-lg xs:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ring-2 ${stat.ring}`}>
-                  <svg className="h-6 w-6 xs:h-7 xs:w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div key={index} className="bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-xl border border-white/60 flex items-center gap-4 hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]">
+                <div className={`bg-gradient-to-br ${stat.gradient} w-14 h-14 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ring-2 ${stat.ring}`}>
+                  <svg className="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xl xs:text-2xl font-bold text-gray-800 leading-tight">{stat.count}</div>
-                  <div className="text-xs xs:text-sm text-gray-600 font-medium leading-relaxed">{stat.label}</div>
+                  <div className="text-2xl font-bold text-gray-800 leading-tight">{stat.count}</div>
+                  <div className="text-sm text-gray-600 font-medium leading-relaxed">{stat.label}</div>
                 </div>
               </div>
             ))}
