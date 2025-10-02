@@ -110,7 +110,7 @@ export default function Home() {
       
       {/* Hero Section with Background */}
       <div
-        className="min-h-screen sm:min-h-[90vh] md:min-h-[95vh] lg:min-h-screen xl:min-h-screen bg-[#003366] relative overflow-hidden"
+        className="bg-[#003366] relative overflow-hidden"
         style={{
           backgroundImage: "url('/library.jpg')",
           backgroundSize: "cover",
@@ -124,9 +124,9 @@ export default function Home() {
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 via-black/30 to-transparent z-15"></div>
 
         {/* Hero Content - Text at Top */}
-        <div className="relative z-20 flex flex-col items-center justify-center pt-12 sm:pt-16 md:pt-20 lg:pt-24 xl:pt-28 pb-12 sm:pb-16 md:pb-20 lg:pb-24 xl:pb-28 min-h-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+        <div className="relative z-20 flex flex-col items-center justify-center py-8 sm:py-10 md:py-12 lg:py-14 xl:py-16 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           {/* Hero Text */}
-          <div className="text-center w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto mb-8 sm:mb-10 md:mb-12 lg:mb-14 xl:mb-16">
+          <div className="text-center w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto mb-4 sm:mb-5 md:mb-6 lg:mb-7 xl:mb-8">
             <h1 className="font-bold text-white leading-tight mb-2 xs:mb-3 sm:mb-4 md:mb-5">
               <span 
                 className="block text-lg xs:text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold"
@@ -168,7 +168,7 @@ export default function Home() {
           </div>
 
           {/* Search Section */}
-          <div className="w-full mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+          <div className="w-full mb-3 sm:mb-4 md:mb-5 lg:mb-6">
             <div className="max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto px-4 sm:px-0">
               <div className="bg-white/95 backdrop-blur-lg shadow-2xl rounded-lg xs:rounded-xl lg:rounded-2xl border border-white/60 overflow-hidden ring-1 ring-gray-200/20">
                 <div className="p-1 xs:p-1.5 sm:p-2 lg:p-2.5">
@@ -244,8 +244,8 @@ export default function Home() {
       </div>
 
       {/* Stats Section */}
-      <div className="relative z-10 bg-gradient-to-r from-cyan-50 to-cyan-100 py-8 sm:py-12 md:py-16 lg:py-20 xl:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+      <div className="relative z-10 bg-gradient-to-r from-cyan-50 to-cyan-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-8 sm:py-10 md:py-12 lg:py-14 xl:py-16">
           {/* Mobile Layout - Single Column */}
           <div className="block sm:hidden space-y-4 max-w-sm mx-auto">
             {[
