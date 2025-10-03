@@ -120,8 +120,8 @@ const Footer = () => {
                   <div className="flex-shrink-0 w-8 h-8 lg:w-10 lg:h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mb-2 sm:mb-0 sm:mr-3 lg:mr-4 group-hover:bg-purple-500/30 transition-colors duration-300">
                     <Globe className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
                   </div>
-                  <a href="https://www.vidyabharati.edu.in" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm lg:text-base text-center sm:text-left">
-                    https://www.vidyabharati.edu.in
+                  <a href="https://www.vbistinsukia.com" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm lg:text-base text-center sm:text-left">
+                    https://www.vbistinsukia.com
                   </a>
                 </li>
               </ul>
