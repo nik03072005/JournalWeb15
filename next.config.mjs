@@ -4,7 +4,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'vidyabharati.s3.ap-south-1.amazonaws.com',
+        hostname: 'vbistinsukia.s3.ap-south-1.amazonaws.com',
         port: '',
         pathname: '/**',
       },

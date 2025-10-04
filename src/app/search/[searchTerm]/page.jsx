@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback ,useMemo} from "react";
+import React, { useEffect, useState, useCallback, useMemo} from "react";
 import axios from "axios";
 import { useParams, useRouter } from 'next/navigation';
 import Navbar2 from "@/components/Navbar2";
@@ -8,6 +8,7 @@ import VisitorBadge from "@/components/VisitorBadge";
 // Constants
 const RESULTS_PER_PAGE = 10;
 const MAX_VISIBLE_PAGES = 5;
+const DOAJ_MAX_RESULTS = 900; // Maximum results to show for DOAJ
 const INITIAL_FILTERS = {
   type: '',
   publisher: '',
@@ -31,46 +32,52 @@ const SearchPage = () => {
   
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [currentSearchTerm, setCurrentSearchTerm] = useState(initialSearchTerm);
-  const [loading, setLoading] = useState(!!initialSearchTerm);
+  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [isPageChanging, setIsPageChanging] = useState(false);
-  const [allResults, setAllResults] = useState([]);
-  const [doajResults, setDoajResults] = useState([]);
-  const [doajJournalResults, setDoajJournalResults] = useState([]);
-  const [doabResults, setDoabResults] = useState([]);
-  const [localResults, setLocalResults] = useState([]);
-  const [doajPagination, setDoajPagination] = useState(null);
-  const [doajJournalPagination, setDoajJournalPagination] = useState(null);
-  const [doabPagination, setDoabPagination] = useState(null);
-  const [doajTotalCount, setDoajTotalCount] = useState(0);
-  const [doajJournalTotalCount, setDoajJournalTotalCount] = useState(0);
-  const [doabTotalCount, setDoabTotalCount] = useState(0);
+  
+  // Tab-specific results and pagination
   const [activeTab, setActiveTab] = useState('articles');
+  const [tabData, setTabData] = useState({
+    articles: { results: [], pagination: null, totalCount: 0 },
+    journals: { results: [], pagination: null, totalCount: 0 },
+    books: { results: [], pagination: null, totalCount: 0 },
+    home: { results: [], pagination: null, totalCount: 0 }
+  });
+  
   const [showFilters, setShowFilters] = useState(false);
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1024
-  );
+  const [windowWidth, setWindowWidth] = useState(1024); // Always start with desktop width
+  const [isHydrated, setIsHydrated] = useState(false); // Track hydration
   const [expandedSections, setExpandedSections] = useState(INITIAL_EXPANDED_SECTIONS);
 
   // API fetch functions
   const fetchDOAJArticles = useCallback(async (query = "", page = 1) => {
     if (!query) return { results: [], pagination: null };
-    const encodedQuery = encodeURIComponent(query);
-    const url = `https://doaj.org/api/v2/search/articles/${query}?page=${page}`;
+    const url = `https://doaj.org/api/v4/search/articles/${encodeURIComponent(query)}?page=${page}&pageSize=10`;
 
     try {
       const response = await axios.get(url, { headers: { 'Accept': 'application/json' } });
-      console.log("DOAJ Data from api:", response.data);
+      //console.log("DOAJ Articles API Response:", response.data);
+      
+      // Calculate effective pagination with 900 result limit
+      const total = response.data?.total || 0;
+      const effectiveTotal = Math.max(total, DOAJ_MAX_RESULTS);
+      const pageSize = response.data?.pageSize || 10;
+      const maxPages = Math.ceil(total/ pageSize);
+      const currentPage = response.data?.page || 1;
+      
       return {
         results: response.data?.results || [],
         pagination: {
           prev: response.data?.prev || null,
           next: response.data?.next || null,
-          page: response.data?.page || 1,
-          pageSize: response.data?.pageSize || 10,
-          total: response.data?.total || 0,
-          last: response.data?.last || null
+          page: currentPage,
+          pageSize: pageSize,
+          total: effectiveTotal,
+          maxPages: maxPages,
+          hasMore: currentPage < maxPages,
+          last: currentPage >= maxPages ? null : response.data?.last
         }
       };
     } catch (err) {
@@ -82,20 +89,30 @@ const SearchPage = () => {
   const fetchDOAJJournals = useCallback(async (query = "", page = 1) => {
     if (!query) return { results: [], pagination: null };
     const encodedQuery = encodeURIComponent(query);
-    const url = `https://doaj.org/api/search/journals/${encodedQuery}?page=${page}`;
+    const url = `https://doaj.org/api/v4/search/journals/${encodedQuery}?page=${page}&pageSize=10`;
 
     try {
       const response = await axios.get(url, { headers: { 'Accept': 'application/json' } });
-      console.log("DOAJ Journals Data from api:", response.data);
+      //console.log("DOAJ Journals API Response:", response.data);
+      
+      // Calculate effective pagination with 900 result limit
+      const total = response.data?.total || 0;
+      const effectiveTotal = Math.min(total, DOAJ_MAX_RESULTS);
+      const pageSize = response.data?.pageSize || 10;
+      const maxPages = Math.ceil(effectiveTotal / pageSize);
+      const currentPage = response.data?.page || 1;
+      
       return {
         results: response.data?.results || [],
         pagination: {
           prev: response.data?.prev || null,
           next: response.data?.next || null,
-          page: response.data?.page || 1,
-          pageSize: response.data?.pageSize || 10,
-          total: response.data?.total || 0,
-          last: response.data?.last || null
+          page: currentPage,
+          pageSize: pageSize,
+          total: effectiveTotal,
+          maxPages: maxPages,
+          hasMore: currentPage < maxPages,
+          last: currentPage >= maxPages ? null : response.data?.last
         }
       };
     } catch (err) {
@@ -115,15 +132,14 @@ const SearchPage = () => {
           timeout: 30000 // 30 seconds timeout for DOAB API
         }
       );
-      console.log("DOAB Data from api:", response.data);
-
+      //console.log("DOAB API Response:", response.data);
       return response.data;
     } catch (error) {
       console.error("Failed to fetch DOAB books:", error.message);
       
       // If it's a timeout error, try without metadata
       if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
-        console.log("DOAB request timed out, trying with basic search...");
+        //console.log("DOAB request timed out, trying with basic search...");
         try {
           const fallbackResponse = await axios.get(
             `/api/doab-search?query=${encodedQuery}&page=${page}&limit=${Math.min(limit, 10)}`,
@@ -139,6 +155,16 @@ const SearchPage = () => {
       }
       
       return { results: [], pagination: null };
+    }
+  }, []);
+
+  const fetchLocalResults = useCallback(async () => {
+    try {
+      const response = await axios.get(`/api/journal`);
+      return response.data.journals || [];
+    } catch (error) {
+      console.error("Error fetching local results:", error);
+      return [];
     }
   }, []);
 
@@ -261,10 +287,10 @@ const SearchPage = () => {
   }, []);
 
   const normalizeDOABBooks = useCallback((books) => {
-    console.log(`Normalizing ${books.length} DOAB books`);
-    if (books.length > 0) {
-      console.log("First book to normalize:", books[0]);
-    }
+    //console.log(`Normalizing ${books.length} DOAB books`);
+    // if (books.length > 0) {
+    //   console.log("First book to normalize:", books[0]);
+    // }
     
     const normalizedBooks = books.map((book) => {
       // Function to get metadata value (for books with metadata)
@@ -325,74 +351,75 @@ const SearchPage = () => {
       };
     });
     
-    console.log(`Normalized ${books.length} DOAB books successfully`);
+    //console.log(`Normalized ${books.length} DOAB books successfully`);
     return normalizedBooks;
   }, []);
 
-  // Main search function
-  const performCombinedSearch = useCallback(async (searchTerm) => {
+  // Main search function for specific tab
+  const performTabSearch = useCallback(async (searchTerm, tab) => {
+    if (!searchTerm.trim()) return;
+    
+    setLoading(true);
+    //console.log(`Performing search for tab: ${tab} with term: ${searchTerm}`);
+    
     try {
-      setLoading(true);
-      setAllResults([]);
-      setDoajResults([]);
-      setDoajJournalResults([]);
-      setDoabResults([]);
-      setLocalResults([]);
-      setDoajTotalCount(0);
-      setDoajJournalTotalCount(0);
-      setDoabTotalCount(0);
-
-      const [localData, doajResponse, doajJournalResponse, doabResponse] = await Promise.all([
-        axios.get(`/api/journal`).then(res => res.data.journals).catch(() => []),
-        fetchDOAJArticles(searchTerm, 1),
-        fetchDOAJJournals(searchTerm, 1),
-        fetchDOABBooks(searchTerm, 1, 20)
-      ]);
-      console.log("DOAJ Articles Response:", doajResponse);
-      console.log("DOAJ Journals Response:", doajJournalResponse);
-      console.log("DOAB Response:", doabResponse);
+      let response, normalizedResults;
       
-      // Debug DOAB books structure
-      if (doabResponse.results && doabResponse.results.length > 0) {
-        console.log("Sample DOAB book structure:", doabResponse.results[0]);
+      switch (tab) {
+        case 'articles':
+          response = await fetchDOAJArticles(searchTerm, 1);
+          normalizedResults = normalizeDOAJArticles(response.results || []);
+          break;
+        case 'journals':
+          response = await fetchDOAJJournals(searchTerm, 1);
+          normalizedResults = formatDOAJJournals(response.results || []);
+          break;
+        case 'books':
+          response = await fetchDOABBooks(searchTerm, 1, 20);
+          normalizedResults = normalizeDOABBooks(response.results || []);
+          break;
+        case 'home':
+          const localData = await fetchLocalResults();
+          normalizedResults = localData;
+          response = { 
+            results: localData, 
+            pagination: null 
+          };
+          break;
+        default:
+          return;
       }
-
-      const normalizedDOAJ = normalizeDOAJArticles(doajResponse.results || []);
-      const normalizedDOAJJournals = formatDOAJJournals(doajJournalResponse.results || []);
-      const normalizedDOAB = normalizeDOABBooks(doabResponse.results || []);
       
-      console.log(`Normalized DOAJ Articles: ${normalizedDOAJ.length} articles`);
-      console.log(`Normalized DOAJ Journals: ${normalizedDOAJJournals.length} journals`);
-      console.log(`Normalized DOAB: ${normalizedDOAB.length} books`);
+      // Update tab data
+      setTabData(prev => ({
+        ...prev,
+        [tab]: {
+          results: normalizedResults,
+          pagination: response.pagination,
+          totalCount: response.pagination?.total || normalizedResults.length
+        }
+      }));
       
-      const combinedResults = [...localData, ...normalizedDOAJ, ...normalizedDOAJJournals, ...normalizedDOAB];
-      console.log("Combined Results:", combinedResults);
+      // console.log(`${tab} search completed:`, {
+      //   resultsCount: normalizedResults.length,
+      //   totalCount: response.pagination?.total || normalizedResults.length
+      // });
       
-      setAllResults(combinedResults);
-      setLocalResults(localData);
-      setDoajResults(normalizedDOAJ);
-      setDoajJournalResults(normalizedDOAJJournals);
-      setDoabResults(normalizedDOAB);
-      setDoajPagination(doajResponse.pagination);
-      setDoajJournalPagination(doajJournalResponse.pagination);
-      setDoabPagination(doabResponse.pagination);
-      setDoajTotalCount(doajResponse.pagination?.total || 0);
-      setDoajJournalTotalCount(doajJournalResponse.pagination?.total || 0);
-      setDoabTotalCount(doabResponse.pagination?.totalResults || 0);
     } catch (error) {
-      console.error("Search failed:", error);
-      setAllResults([]);
-      setLocalResults([]);
-      setDoajResults([]);
-      setDoajJournalResults([]);
-      setDoabResults([]);
-      setDoajTotalCount(0);
-      setDoajJournalTotalCount(0);
-      setDoabTotalCount(0);
+      // console.error(`Search failed for ${tab}:`, error);
+      // Reset tab data on error
+      setTabData(prev => ({
+        ...prev,
+        [tab]: {
+          results: [],
+          pagination: null,
+          totalCount: 0
+        }
+      }));
     } finally {
       setLoading(false);
     }
-  }, [fetchDOAJArticles, fetchDOAJJournals, fetchDOABBooks, normalizeDOAJArticles, formatDOAJJournals, normalizeDOABBooks]);
+  }, [fetchDOAJArticles, fetchDOAJJournals, fetchDOABBooks, fetchLocalResults]);
 
   // Event handlers
   const handleSearch = (e) => {
@@ -429,143 +456,186 @@ const SearchPage = () => {
     }, 500);
   }, []);
 
-  // Handle DOAJ pagination using API links
-  const handleDoajPagination = useCallback(async (url) => {
-    if (!url) return;
-    
-    setLoading(true);
-    try {
-      const response = await axios.get(url, { headers: { 'Accept': 'application/json' } });
-      const normalizedDOAJ = normalizeDOAJArticles(response.data?.results || []);
-      setDoajResults(normalizedDOAJ);
-      setDoajPagination({
-        prev: response.data?.prev || null,
-        next: response.data?.next || null,
-        page: response.data?.page || 1,
-        pageSize: response.data?.pageSize || 10,
-        total: response.data?.total || 0,
-        last: response.data?.last || null
-      });
-    } catch (error) {
-      console.error("Failed to fetch DOAJ page:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [normalizeDOAJArticles]);
-
-  // Handle DOAJ Journal pagination using API links
-  const handleDoajJournalPagination = useCallback(async (url) => {
-    if (!url) return;
-    
-    setLoading(true);
-    try {
-      const response = await axios.get(url, { headers: { 'Accept': 'application/json' } });
-      const normalizedDOAJJournals = formatDOAJJournals(response.data?.results || []);
-      setDoajJournalResults(normalizedDOAJJournals);
-      setDoajJournalPagination({
-        prev: response.data?.prev || null,
-        next: response.data?.next || null,
-        page: response.data?.page || 1,
-        pageSize: response.data?.pageSize || 10,
-        total: response.data?.total || 0,
-        last: response.data?.last || null
-      });
-    } catch (error) {
-      console.error("Failed to fetch DOAJ journals page:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [formatDOAJJournals]);
-
-  // Handle DOAB pagination
-  const handleDoabPagination = useCallback(async (page) => {
-    if (!currentSearchTerm || !page) return;
-    
-    setLoading(true);
-    try {
-      const doabResponse = await fetchDOABBooks(currentSearchTerm, page, 20);
-      const normalizedDOAB = normalizeDOABBooks(doabResponse.results || []);
-      setDoabResults(normalizedDOAB);
-      setDoabPagination(doabResponse.pagination);
-    } catch (error) {
-      console.error("Failed to fetch DOAB page:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentSearchTerm, fetchDOABBooks, normalizeDOABBooks]);
-
-  // Handle tab switching
+  // Handle tab switching - THIS IS THE KEY CHANGE
   const handleTabChange = (tab) => {
+    //console.log(`Tab changed to: ${tab}`);
     setActiveTab(tab);
     setCurrentPage(1);
-    // Don't reset filters when switching tabs - allow filtering across all tabs
+    
+    // Only fetch data if tab doesn't have data yet or if we want to refresh
+    const currentTabData = tabData[tab];
+    if (!currentTabData.results.length && currentSearchTerm) {
+      //console.log(`No data for ${tab} tab, fetching...`);
+      performTabSearch(currentSearchTerm, tab);
+    }
   };
+
+  // Handle pagination for different tabs
+  const handleTabPagination = useCallback(async (tab, page, url = null) => {
+    if (!currentSearchTerm) return;
+    
+    setLoading(true);
+    try {
+      let response, normalizedResults;
+      
+      switch (tab) {
+        case 'articles':
+          if (url) {
+            // Use direct API URL for DOAJ pagination
+            const apiResponse = await axios.get(url, { headers: { 'Accept': 'application/json' } });
+            const total = apiResponse.data?.total || 0;
+            const effectiveTotal = Math.min(total, DOAJ_MAX_RESULTS);
+            const pageSize = apiResponse.data?.pageSize || 10;
+            const maxPages = Math.ceil(effectiveTotal / pageSize);
+            const currentPage = apiResponse.data?.page || 1;
+            
+            response = {
+              results: apiResponse.data?.results || [],
+              pagination: {
+                prev: apiResponse.data?.prev || null,
+                next: apiResponse.data?.next || null,
+                page: currentPage,
+                pageSize: pageSize,
+                total: effectiveTotal,
+                maxPages: maxPages,
+                hasMore: currentPage < maxPages,
+                last: currentPage >= maxPages ? null : apiResponse.data?.last
+              }
+            };
+            normalizedResults = normalizeDOAJArticles(response.results);
+          } else {
+            response = await fetchDOAJArticles(currentSearchTerm, page);
+            normalizedResults = normalizeDOAJArticles(response.results || []);
+          }
+          break;
+        case 'journals':
+          if (url) {
+            const apiResponse = await axios.get(url, { headers: { 'Accept': 'application/json' } });
+            const total = apiResponse.data?.total || 0;
+            const effectiveTotal = Math.min(total, DOAJ_MAX_RESULTS);
+            const pageSize = apiResponse.data?.pageSize || 10;
+            const maxPages = Math.ceil(effectiveTotal / pageSize);
+            const currentPage = apiResponse.data?.page || 1;
+            
+            response = {
+              results: apiResponse.data?.results || [],
+              pagination: {
+                prev: apiResponse.data?.prev || null,
+                next: apiResponse.data?.next || null,
+                page: currentPage,
+                pageSize: pageSize,
+                total: effectiveTotal,
+                maxPages: maxPages,
+                hasMore: currentPage < maxPages,
+                last: currentPage >= maxPages ? null : apiResponse.data?.last
+              }
+            };
+            normalizedResults = formatDOAJJournals(response.results);
+          } else {
+            response = await fetchDOAJJournals(currentSearchTerm, page);
+            normalizedResults = formatDOAJJournals(response.results || []);
+          }
+          break;
+        case 'books':
+          response = await fetchDOABBooks(currentSearchTerm, page, 20);
+          normalizedResults = normalizeDOABBooks(response.results || []);
+          break;
+        case 'home':
+          // Home tab uses local pagination, no need to refetch
+          return;
+        default:
+          return;
+      }
+      
+      // Update tab data
+      setTabData(prev => ({
+        ...prev,
+        [tab]: {
+          results: normalizedResults,
+          pagination: response.pagination,
+          totalCount: response.pagination?.total || normalizedResults.length
+        }
+      }));
+      
+    } catch (error) {
+      console.error(`Pagination failed for ${tab}:`, error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentSearchTerm, fetchDOAJArticles, fetchDOAJJournals, fetchDOABBooks]);
 
   // Filter and pagination logic
   const getActiveResults = () => {
-    switch (activeTab) {
-      case 'articles':
-        return doajResults;
-      case 'journals':
-        return doajJournalResults;
-      case 'books':
-        return doabResults;
-      case 'home':
-        return localResults;
-      default:
-        return [];
-    }
+    return tabData[activeTab]?.results || [];
+  };
+
+  const getActivePagination = () => {
+    return tabData[activeTab]?.pagination || null;
+  };
+
+  const getActiveTotalCount = () => {
+    return tabData[activeTab]?.totalCount || 0;
   };
 
   const filteredJournals = useMemo(() => {
     const activeResults = getActiveResults();
-    const lowerSearch = currentSearchTerm.toLowerCase();
+    //console.log(`Active results for ${activeTab} tab:`, activeResults.length);
     
-    return activeResults.filter((journal) => {
-      // Text search filter - apply to all tabs
-      const matchesSearch = !currentSearchTerm || (
-        journal.detail?.title?.toLowerCase().includes(lowerSearch) ||
-        journal.detail?.journalOrPublicationTitle?.toLowerCase().includes(lowerSearch) ||
-        journal.detail?.publisher?.toLowerCase().includes(lowerSearch) ||
-        journal.subject?.subjectName?.toLowerCase().includes(lowerSearch) ||
-        journal.type?.toLowerCase().includes(lowerSearch) ||
-        (typeof journal.type === 'string' && journal.type.toLowerCase().includes(lowerSearch)) ||
-        journal.detail?.abstract?.toLowerCase().includes(lowerSearch) ||
-        journal.detail?.keywords?.toLowerCase().includes(lowerSearch)
-      );
+    const filtered = activeResults.filter((journal) => {
+      // For external APIs (articles, journals, books), don't apply text search filter
+      // as the API already returns filtered results based on the search term
+      // Only apply text search filter for home tab (local results)
+      const matchesSearch = activeTab === 'home' ? (
+        !currentSearchTerm || (
+          journal.detail?.title?.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+          journal.detail?.journalOrPublicationTitle?.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+          journal.detail?.publisher?.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+          journal.subject?.subjectName?.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+          journal.type?.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+          (typeof journal.type === 'string' && journal.type.toLowerCase().includes(currentSearchTerm.toLowerCase())) ||
+          journal.detail?.abstract?.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
+          journal.detail?.keywords?.toLowerCase().includes(currentSearchTerm.toLowerCase())
+        )
+      ) : true; // For external APIs, always true since API already filtered
 
-      // Type filter - apply to all tabs
+      // Apply other filters...
       const matchesType = !filters.type || 
         (journal.type?.toLowerCase && journal.type.toLowerCase().includes(filters.type.toLowerCase())) ||
         (typeof journal.type === 'string' && journal.type.toLowerCase().includes(filters.type.toLowerCase()));
 
-      // Publisher filter - apply to all tabs
       const matchesPublisher = !filters.publisher || 
         journal.detail?.publisher?.toLowerCase().includes(filters.publisher.toLowerCase());
 
-      // Subject filter - apply to all tabs
       const matchesSubject = !filters.subject || 
         journal.subject?.subjectName?.toLowerCase().includes(filters.subject.toLowerCase());
 
-      // Date filter - apply to all tabs
       const journalDate = new Date(journal.detail?.date || journal.detail?.publicationDate || journal.date);
-      const matchesDateFrom = !filters.dateFrom || (
-        journalDate.getFullYear().toString() === filters.dateFrom || 
-        journalDate >= new Date(filters.dateFrom)
-      );
+      // Fix: Only match exact year, not >= year
+      const matchesDateFrom = !filters.dateFrom || 
+        journalDate.getFullYear().toString() === filters.dateFrom;
       const matchesDateTo = !filters.dateTo || journalDate <= new Date(filters.dateTo);
 
       return matchesSearch && matchesType && matchesPublisher && matchesSubject && matchesDateFrom && matchesDateTo;
     });
-  }, [doajResults, doajJournalResults, doabResults, localResults, activeTab, currentSearchTerm, filters]);
+    
+    //console.log(`Filtered results for ${activeTab} tab:`, filtered.length);
+    return filtered;
+  }, [tabData, activeTab, currentSearchTerm, filters]);
 
   // Pagination calculations
   const startIndex = (currentPage - 1) * RESULTS_PER_PAGE;
   const endIndex = startIndex + RESULTS_PER_PAGE;
-  // For DOAJ articles, DOAJ journals, and DOAB books, show all results from the current API page
+  
+  // For external APIs (articles, journals, books), show all results from current API page
   // For home tab, use local pagination
-  const currentPageResults = (activeTab === 'articles' || activeTab === 'journals' || activeTab === 'books') ? filteredJournals : filteredJournals.slice(startIndex, endIndex);
-  const totalPages = (activeTab === 'articles' || activeTab === 'journals' || activeTab === 'books') ? 1 : Math.ceil(filteredJournals.length / RESULTS_PER_PAGE);
+  const currentPageResults = (activeTab === 'home') ? 
+    filteredJournals.slice(startIndex, endIndex) : 
+    filteredJournals;
+    
+  const totalPages = (activeTab === 'home') ? 
+    Math.ceil(filteredJournals.length / RESULTS_PER_PAGE) : 
+    1; // External APIs handle their own pagination
+    
   const totalResults = filteredJournals.length;
 
   // Get unique values for filter dropdowns
@@ -574,17 +644,17 @@ const SearchPage = () => {
     return [...new Set(activeResults.map(j => 
       typeof j.type === 'string' ? j.type : j.type?.typeName || j.type
     ).filter(Boolean))];
-  }, [doajResults, doajJournalResults, doabResults, localResults, activeTab]);
+  }, [tabData, activeTab]);
 
   const uniquePublishers = useMemo(() => {
     const activeResults = getActiveResults();
     return [...new Set(activeResults.map(j => j.detail?.publisher).filter(Boolean))];
-  }, [doajResults, doajJournalResults, doabResults, localResults, activeTab]);
+  }, [tabData, activeTab]);
 
   const uniqueSubjects = useMemo(() => {
     const activeResults = getActiveResults();
     return [...new Set(activeResults.map(j => j.subject?.subjectName).filter(Boolean))];
-  }, [doajResults, doajJournalResults, doabResults, localResults, activeTab]);
+  }, [tabData, activeTab]);
 
   const uniqueYears = useMemo(() => {
     const activeResults = getActiveResults();
@@ -593,65 +663,71 @@ const SearchPage = () => {
       return !isNaN(date.getTime()) ? date.getFullYear().toString() : null;
     }).filter(Boolean))];
     return years.sort((a, b) => parseInt(b) - parseInt(a)); // Sort descending
-  }, [doajResults, doajJournalResults, doabResults, localResults, activeTab]);
+  }, [tabData, activeTab]);
 
   // Effects
   useEffect(() => {
+    // Set initial window width and mark as hydrated
+    setWindowWidth(window.innerWidth);
+    setIsHydrated(true);
+    
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    if (currentSearchTerm) {
-      setCurrentPage(1);
-      performCombinedSearch(currentSearchTerm);
-    } else {
-      setLoading(false);
-    }
-  }, [currentSearchTerm, performCombinedSearch]);
-
+  // Initial search when search term changes
   useEffect(() => {
     const newSearchTerm = decodeURIComponent(params.searchTerm || '');
     setCurrentSearchTerm(newSearchTerm);
     setSearchTerm(newSearchTerm);
-  }, [params.searchTerm]);
-
-  // Set default active tab when results are available
-  useEffect(() => {
-    if (doajResults.length > 0 && activeTab === 'articles') return;
-    if (doajJournalResults.length > 0 && activeTab === 'journals') return;
-    if (doabResults.length > 0 && activeTab === 'books') return;
-    if (localResults.length > 0 && activeTab === 'home') return;
     
-    // Set default tab based on available results
-    if (doajResults.length > 0) {
-      setActiveTab('articles');
-    } else if (doajJournalResults.length > 0) {
-      setActiveTab('journals');
-    } else if (doabResults.length > 0) {
-      setActiveTab('books');
-    } else if (localResults.length > 0) {
-      setActiveTab('home');
+    // Reset tab data when search term changes
+    setTabData({
+      articles: { results: [], pagination: null, totalCount: 0 },
+      journals: { results: [], pagination: null, totalCount: 0 },
+      books: { results: [], pagination: null, totalCount: 0 },
+      home: { results: [], pagination: null, totalCount: 0 }
+    });
+    
+    // Trigger search for the active tab only
+    if (newSearchTerm.trim()) {
+      setCurrentPage(1);
+      performTabSearch(newSearchTerm, activeTab);
     }
-  }, [doajResults, doajJournalResults, doabResults, localResults, activeTab]);
+  }, [params.searchTerm, activeTab, performTabSearch]);
 
   // Render helper components
-  const renderDoajPagination = () => {
-    if (!doajPagination || activeTab !== 'articles') return null;
+  const renderTabPagination = () => {
+    const pagination = getActivePagination();
+    if (!pagination) return null;
 
-    const currentPage = doajPagination.page || 1;
-    const totalPages = Math.ceil((doajPagination.total || 0) / (doajPagination.pageSize || 10));
+    const currentPage = pagination.page || 1;
+    const total = pagination.total || 0;
+    const pageSize = pagination.pageSize || 10;
+    
+    // For DOAJ APIs with 900 result limit
+    const displayTotal = (activeTab === 'articles' || activeTab === 'journals') 
+      ? `${Math.max(total, DOAJ_MAX_RESULTS).toLocaleString()} ` 
+      : total.toLocaleString();
 
     return (
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <div className="text-sm text-gray-600">
-          DOAJ Articles - Page {currentPage} of {totalPages} ({doajPagination.total?.toLocaleString()} total articles)
+          {activeTab === 'articles' && `DOAJ Articles - Page ${currentPage} (${displayTotal} total articles)`}
+          {activeTab === 'journals' && `DOAJ Journals - Page ${currentPage} (${displayTotal} total journals)`}
+          {activeTab === 'books' && `DOAB Books - Page ${currentPage} of ${pagination.maxPages || 1} (${total.toLocaleString()} total books)`}
         </div>
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => handleDoajPagination(doajPagination.prev)}
-            disabled={!doajPagination.prev || loading}
+            onClick={() => {
+              if (activeTab === 'articles' || activeTab === 'journals') {
+                handleTabPagination(activeTab, currentPage - 1, pagination.prev);
+              } else {
+                handleTabPagination(activeTab, currentPage - 1);
+              }
+            }}
+            disabled={!pagination.prev && !pagination.hasPrevious || loading}
             className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
           >
             {loading ? (
@@ -664,8 +740,14 @@ const SearchPage = () => {
           </span>
           
           <button
-            onClick={() => handleDoajPagination(doajPagination.next)}
-            disabled={!doajPagination.next || loading}
+            onClick={() => {
+              if (activeTab === 'articles' || activeTab === 'journals') {
+                handleTabPagination(activeTab, currentPage + 1, pagination.next);
+              } else {
+                handleTabPagination(activeTab, currentPage + 1);
+              }
+            }}
+            disabled={!pagination.next && !pagination.hasMore || loading}
             className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
           >
             {loading ? (
@@ -673,114 +755,13 @@ const SearchPage = () => {
             ) : 'Next'}
           </button>
           
-          {doajPagination.last && (
+          {pagination.last && (activeTab === 'articles' || activeTab === 'journals') && (
             <button
-              onClick={() => handleDoajPagination(doajPagination.last)}
-              disabled={loading || currentPage === totalPages}
+              onClick={() => handleTabPagination(activeTab, null, pagination.last)}
+              disabled={loading || !pagination.hasMore}
               className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
-              Last
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderDoajJournalPagination = () => {
-    if (!doajJournalPagination || activeTab !== 'journals') return null;
-
-    const currentPage = doajJournalPagination.page || 1;
-    const totalPages = Math.ceil((doajJournalPagination.total || 0) / (doajJournalPagination.pageSize || 10));
-
-    return (
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <div className="text-sm text-gray-600">
-          DOAJ Journals - Page {currentPage} of {totalPages} ({doajJournalPagination.total?.toLocaleString()} total journals)
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handleDoajJournalPagination(doajJournalPagination.prev)}
-            disabled={!doajJournalPagination.prev || loading}
-            className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-          >
-            {loading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            ) : 'Previous'}
-          </button>
-          
-          <span className="px-2 py-1 text-sm text-gray-600">
-            Page {currentPage}
-          </span>
-          
-          <button
-            onClick={() => handleDoajJournalPagination(doajJournalPagination.next)}
-            disabled={!doajJournalPagination.next || loading}
-            className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-          >
-            {loading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            ) : 'Next'}
-          </button>
-          
-          {doajJournalPagination.last && (
-            <button
-              onClick={() => handleDoajJournalPagination(doajJournalPagination.last)}
-              disabled={loading || currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-            >
-              Last
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderDoabPagination = () => {
-    if (!doabPagination || activeTab !== 'books') return null;
-
-    const currentPage = doabPagination.currentPage || 1;
-    const totalPages = doabPagination.totalPages || 1;
-    const totalResults = doabPagination.totalResults || 0;
-
-    return (
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <div className="text-sm text-gray-600">
-          DOAB Books - Page {currentPage} of {totalPages} ({totalResults?.toLocaleString()} total books)
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handleDoabPagination(currentPage - 1)}
-            disabled={!doabPagination.hasPrevious || loading}
-            className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-          >
-            {loading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            ) : 'Previous'}
-          </button>
-          
-          <span className="px-2 py-1 text-sm text-gray-600">
-            Page {currentPage}
-          </span>
-          
-          <button
-            onClick={() => handleDoabPagination(currentPage + 1)}
-            disabled={!doabPagination.hasMore || loading}
-            className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-          >
-            {loading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            ) : 'Next'}
-          </button>
-          
-          {totalPages > 1 && currentPage < totalPages && (
-            <button
-              onClick={() => handleDoabPagination(totalPages)}
-              disabled={loading || currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-            >
-              Last
+              Last 
             </button>
           )}
         </div>
@@ -789,19 +770,9 @@ const SearchPage = () => {
   };
 
   const renderPagination = () => {
-    // Use DOAJ pagination for articles tab
-    if (activeTab === 'articles') {
-      return renderDoajPagination();
-    }
-    
-    // Use DOAJ journal pagination for journals tab
-    if (activeTab === 'journals') {
-      return renderDoajJournalPagination();
-    }
-    
-    // Use DOAB pagination for books tab
-    if (activeTab === 'books') {
-      return renderDoabPagination();
+    // Use tab-specific pagination for external APIs
+    if (activeTab === 'articles' || activeTab === 'journals' || activeTab === 'books') {
+      return renderTabPagination();
     }
     
     // Use regular pagination for home tab only
@@ -1112,7 +1083,7 @@ const SearchPage = () => {
       </div>
 
       {/* Mobile Filter Section */}
-      {windowWidth < 768 && (
+      {isHydrated && windowWidth < 768 && (
         <div className="bg-gray-100 border-b border-gray-200 py-4">
           <div className="max-w-3xl mx-auto px-4">
             <div className="flex justify-between items-center mb-4">
@@ -1154,7 +1125,7 @@ const SearchPage = () => {
       <div className="bg-gray-100 py-8">
         <div className="flex justify-between px-8">
           {/* Desktop Filter Sidebar */}
-          {windowWidth >= 768 && (
+          {(!isHydrated || windowWidth >= 768) && (
             <div className="w-72 sticky top-5">
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                 {renderFilterSection("Type of deposit", "typeDeposit", uniqueTypes, "type", renderFilterItem)}
@@ -1195,7 +1166,7 @@ const SearchPage = () => {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Articles ({doajTotalCount?.toLocaleString() || 0})
+                    Articles ({activeTab === 'articles' ? getActiveTotalCount()?.toLocaleString() || 0 : '...'})
                   </button>
                   <button
                     onClick={() => handleTabChange('journals')}
@@ -1205,7 +1176,7 @@ const SearchPage = () => {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Journals ({doajJournalTotalCount?.toLocaleString() || 0})
+                    Journals ({activeTab === 'journals' ? getActiveTotalCount()?.toLocaleString() || 0 : '...'})
                   </button>
                   <button
                     onClick={() => handleTabChange('books')}
@@ -1215,7 +1186,7 @@ const SearchPage = () => {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Books ({doabTotalCount?.toLocaleString() || 0})
+                    Books ({activeTab === 'books' ? getActiveTotalCount()?.toLocaleString() || 0 : '...'})
                   </button>
                   <button
                     onClick={() => handleTabChange('home')}
@@ -1225,7 +1196,7 @@ const SearchPage = () => {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Home Library ({localResults.length})
+                    Home Library ({activeTab === 'home' ? getActiveTotalCount()?.toLocaleString() || 0 : '...'})
                   </button>
                 </nav>
               </div>
@@ -1234,44 +1205,21 @@ const SearchPage = () => {
             <div className="bg-white rounded-lg shadow-md p-6 results-container relative">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl">
-                  {activeTab === 'articles' ? (
-                    doajPagination ? 
-                      `${doajPagination.total?.toLocaleString() || 0} Articles found` : 
-                      `${filteredJournals.length} Articles`
-                  ) : activeTab === 'journals' ? (
-                    doajJournalPagination ? 
-                      `${doajJournalPagination.total?.toLocaleString() || 0} Journals found` : 
-                      `${filteredJournals.length} Journals`
-                  ) : activeTab === 'books' ? (
-                    doabPagination ? 
-                      `${doabPagination.totalResults?.toLocaleString() || 0} Books found` : 
-                      `${filteredJournals.length} Books`
-                  ) : (
-                    `${filteredJournals.length} Home Library Results`
-                  )} for "{currentSearchTerm}"
+                  {activeTab === 'articles' && `${getActiveTotalCount()?.toLocaleString() || 0} Articles found for "${currentSearchTerm}"`}
+                  {activeTab === 'journals' && `${getActiveTotalCount()?.toLocaleString() || 0} Journals found for "${currentSearchTerm}"`}
+                  {activeTab === 'books' && `${getActiveTotalCount()?.toLocaleString() || 0} Books found for "${currentSearchTerm}"`}
+                  {activeTab === 'home' && `${getActiveTotalCount()?.toLocaleString() || 0} Home Library Results for "${currentSearchTerm}"`}
                 </h2>
-                {/* Show current page info for home tab only */}
-                {filteredJournals.length > RESULTS_PER_PAGE && activeTab === 'home' && (
+                
+                {/* Show current page info */}
+                {filteredJournals.length > 0 && (
                   <div className="text-sm text-gray-600">
-                    Showing {startIndex + 1}-{Math.min(endIndex, filteredJournals.length)} of {filteredJournals.length}
-                  </div>
-                )}
-                {/* Show current page info for DOAJ articles */}
-                {activeTab === 'articles' && doajPagination && (
-                  <div className="text-sm text-gray-600">
-                    Showing {filteredJournals.length} of {doajPagination.pageSize || 10} results on page {doajPagination.page || 1}
-                  </div>
-                )}
-                {/* Show current page info for DOAJ journals */}
-                {activeTab === 'journals' && doajJournalPagination && (
-                  <div className="text-sm text-gray-600">
-                    Showing {filteredJournals.length} of {doajJournalPagination.pageSize || 10} results on page {doajJournalPagination.page || 1}
-                  </div>
-                )}
-                {/* Show current page info for DOAB books */}
-                {activeTab === 'books' && doabPagination && (
-                  <div className="text-sm text-gray-600">
-                    Showing {filteredJournals.length} of {doabPagination.limit || 20} results on page {doabPagination.currentPage || 1}
+                    {activeTab === 'home' && filteredJournals.length > RESULTS_PER_PAGE && (
+                      `Showing ${startIndex + 1}-${Math.min(endIndex, filteredJournals.length)} of ${filteredJournals.length}`
+                    )}
+                    {(activeTab === 'articles' || activeTab === 'journals' || activeTab === 'books') && getActivePagination() && (
+                      `Showing ${filteredJournals.length} results on page ${getActivePagination()?.page || 1}`
+                    )}
                   </div>
                 )}
               </div>
